@@ -3,8 +3,6 @@ import mysql.connector
 from mysql.connector import Error
 from Note import buildValidAvit
 import xml.etree.ElementTree as ET
-import mysql.connector
-from mysql.connector import Error
 from restaurants import buildRestaurant
 
 def connect_to_mysql():
@@ -12,8 +10,8 @@ def connect_to_mysql():
     try:
         conn = mysql.connector.connect(
             host='localhost',
-            user='amara',
-            password='aaa',  # Remplace par ton mot de passe MySQL
+            user='root',
+            password='',  # Remplace par ton mot de passe MySQL
             database='datatest'
         )
         print("La connexion s'est bien établie")
@@ -27,18 +25,33 @@ def create_database_and_table(tableName, conn):
     try:
         cursor = conn.cursor()
         cursor.execute("USE datatest")  # Utilisation de la base de données existante
-        sql = f'''
-            CREATE TABLE IF NOT EXISTS {tableName} (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                firstname VARCHAR(255),
-                lastname VARCHAR(255),
-                street VARCHAR(255),
-                number INT,
-                zipcode VARCHAR(10),
-                city VARCHAR(255),
-                country VARCHAR(255)
-            )
-        '''
+        if(tableName == "Restaurateurs"):
+            sql = f'''
+                CREATE TABLE IF NOT EXISTS {tableName} (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    firstname VARCHAR(255),
+                    lastname VARCHAR(255),
+                    street VARCHAR(255),
+                    number INT,
+                    zipcode VARCHAR(10),
+                    city VARCHAR(255),
+                    country VARCHAR(255),
+                    restaurant VARCHAR(255)
+                )
+            '''
+        else:
+            sql = f'''
+                CREATE TABLE IF NOT EXISTS {tableName} (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    firstname VARCHAR(255),
+                    lastname VARCHAR(255),
+                    street VARCHAR(255),
+                    number INT,
+                    zipcode VARCHAR(10),
+                    city VARCHAR(255),
+                    country VARCHAR(255)
+                )
+            '''
         cursor.execute(sql)
         print(f"Table {tableName} créée ou déjà existante.")
     except Error as e:
@@ -51,19 +64,36 @@ def insert_data_to_table(informations, tableName, conn):
     try:
         cursor = conn.cursor()
         for customer in informations:
-            firstname = customer.get('firstname', '')
-            lastname = customer.get('lastname', '')
-            address = customer.get('address', {})
-            street = address.get('street', '')
-            number = address.get('number', 0)
-            zipcode = address.get('zipcode', '')
-            city = address.get('city', '')
-            country = address.get('country', '')
-            sql = f'''
-                INSERT INTO {tableName} (firstname, lastname, street, number, zipcode, city, country)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
-            '''
-            cursor.execute(sql, (firstname, lastname, street, number, zipcode, city, country))
+            if(tableName == "Restaurateurs"):
+                firstname = customer.get('firstname', '')
+                lastname = customer.get('lastname', '')
+                address = customer.get('address', {})
+                street = address.get('street', '')
+                number = address.get('number', 0)
+                zipcode = address.get('zipcode', '')
+                city = address.get('city', '')
+                country = address.get('country', '')
+                restaurant = customer.get("restaurant")
+                sql = f'''
+                    INSERT INTO {tableName} (firstname, lastname, street, number, zipcode, city, country, restaurant)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                '''
+                cursor.execute(sql, (firstname, lastname, street, number, zipcode, city, country, restaurant))
+            else:
+                firstname = customer.get('firstname', '')
+                lastname = customer.get('lastname', '')
+                address = customer.get('address', {})
+                street = address.get('street', '')
+                number = address.get('number', 0)
+                zipcode = address.get('zipcode', '')
+                city = address.get('city', '')
+                country = address.get('country', '')
+                sql = f'''
+                    INSERT INTO {tableName} (firstname, lastname, street, number, zipcode, city, country)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                '''
+                cursor.execute(sql, (firstname, lastname, street, number, zipcode, city, country))
+
         conn.commit()
         print("L'insertion des données s'est bien passée.")
     except Error as e:
