@@ -12,8 +12,8 @@ def connect_to_mysql():
     try:
         conn = mysql.connector.connect(
             host='localhost',
-            user='amara',
-            password='aaa',  # Remplace par ton mot de passe MySQL
+            user='root',
+            password='',  # Remplace par ton mot de passe MySQL
             database='datatest'
         )
         print("La connexion s'est bien établie")
@@ -39,7 +39,7 @@ def create_database_and_table(tableName, conn):
                 city VARCHAR(255),
                 country VARCHAR(255),
                 restaurant VARCHAR(255),
-                CONSTRAINT chk_Country_{tableName} CHECK (country IN ("France", "Belgium"))
+                CONSTRAINT chk_Country_{tableName} CHECK (country IN ("France", "Belgium", "Belgique"))
             )
         '''
 
@@ -55,7 +55,7 @@ def create_database_and_table(tableName, conn):
                     city VARCHAR(255),
                     country VARCHAR(255),
                     restaurant VARCHAR(255),
-                    CONSTRAINT chk_Country_{tableName} CHECK (country IN ("France", "Belgium"))
+                    CONSTRAINT chk_Country_{tableName} CHECK (country IN ("France", "Belgium", "Belgique"))
                 )
             '''
 
