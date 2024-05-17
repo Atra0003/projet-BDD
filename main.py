@@ -1,17 +1,19 @@
 import json
 import mysql.connector
 from mysql.connector import Error
-from Note import buildValidAvit
+from Notes import buildNote
 import xml.etree.ElementTree as ET
 from restaurants import buildRestaurant
+from convert_tsv_to_json import main_convert
+
 
 def connect_to_mysql():
     """Connexion à MySQL."""
     try:
         conn = mysql.connector.connect(
             host='localhost',
-            user='root',
-            password='',  # Remplace par ton mot de passe MySQL
+            user='amara',
+            password='aaa',  # Remplace par ton mot de passe MySQL
             database='datatest'
         )
         print("La connexion s'est bien établie")
@@ -27,18 +29,20 @@ def create_database_and_table(tableName, conn):
         cursor.execute("USE datatest")  # Utilisation de la base de données existante
         if(tableName == "Restaurateurs"):
             sql = f'''
-                CREATE TABLE IF NOT EXISTS {tableName} (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    firstname VARCHAR(255),
-                    lastname VARCHAR(255),
-                    street VARCHAR(255),
-                    number INT,
-                    zipcode VARCHAR(10),
-                    city VARCHAR(255),
-                    country VARCHAR(255),
-                    restaurant VARCHAR(255)
-                )
-            '''
+            CREATE TABLE IF NOT EXISTS {tableName} (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                firstname VARCHAR(255),
+                lastname VARCHAR(255),
+                street VARCHAR(255),
+                number INT,
+                zipcode VARCHAR(10),
+                city VARCHAR(255),
+                country VARCHAR(255),
+                restaurant VARCHAR(255),
+                CONSTRAINT chk_Country_{tableName} CHECK (country IN ("France", "Belgium"))
+            )
+        '''
+
         else:
             sql = f'''
                 CREATE TABLE IF NOT EXISTS {tableName} (
@@ -49,9 +53,12 @@ def create_database_and_table(tableName, conn):
                     number INT,
                     zipcode VARCHAR(10),
                     city VARCHAR(255),
-                    country VARCHAR(255)
+                    country VARCHAR(255),
+                    restaurant VARCHAR(255),
+                    CONSTRAINT chk_Country_{tableName} CHECK (country IN ("France", "Belgium"))
                 )
             '''
+
         cursor.execute(sql)
         print(f"Table {tableName} créée ou déjà existante.")
     except Error as e:
@@ -102,7 +109,7 @@ def insert_data_to_table(informations, tableName, conn):
         cursor.close()
 
 if __name__ == '__main__':
-    files_path = ['donnees_projet/customers.json', 'donnees_projet/moderators.json', 'donnees_projet/restaurateur.json']
+    files_path = ['customers.json', 'moderators.json', 'restaurateur.json']
     tableNames = ['Clients', 'Moderateurs', 'Restaurateurs']
     conn = connect_to_mysql()
     if conn is not None and conn.is_connected():
@@ -111,7 +118,10 @@ if __name__ == '__main__':
                 customers = json.load(file)
             create_database_and_table(tableNames[i], conn)
             insert_data_to_table(customers, tableNames[i], conn)
-        buildValidAvit("donnees_projet/valid_comments.tsv", conn, "1")
-        buildValidAvit("donnees_projet/removed_comments.tsv", conn, "2")
+        
         buildRestaurant(conn)
+        main_convert()
+        buildNote("valid_comments.json", conn)
+        buildNote("removed_comments.json", conn)
+        
         conn.close()

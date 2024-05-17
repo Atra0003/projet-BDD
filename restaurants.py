@@ -20,7 +20,9 @@ def create_database_and_tables(conn):
                 opening_hours TIME,
                 closing_hours TIME,
                 price_range VARCHAR(50),
-                evaluation DECIMAL(3,1)
+                evaluation DECIMAL(3,1),
+                CONSTRAINT chk_price_range CHECK (price_range IN ('bas', 'haut', 'moyen'))
+
             );
         ''')
         cursor.execute('''
@@ -98,5 +100,5 @@ def parse_xml_and_insert_data(xml_file_path, conn):
 def buildRestaurant(conn):
     print("pass")
     create_database_and_tables(conn)
-    xml_file_path = 'donnees_projet/restos.xml'  # Assure-toi que le chemin est correct
+    xml_file_path = 'restos.xml'  # Assure-toi que le chemin est correct
     parse_xml_and_insert_data(xml_file_path, conn)
