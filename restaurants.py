@@ -20,6 +20,7 @@ def create_database_and_tables(conn):
                 opening_hours TIME,
                 closing_hours TIME,
                 price_range VARCHAR(50),
+                delivery VARCHAR(3),
                 evaluation DECIMAL(3,1),
                 CONSTRAINT chk_price_range CHECK (price_range IN ('bas', 'haut', 'moyen'))
 
@@ -65,6 +66,7 @@ def parse_xml_and_insert_data(xml_file_path, conn):
         name = resto.find('name').text if resto.find('name') is not None else ''
         type_cuisine = resto.find('type').text if resto.find('type') is not None else ''
         price_range = resto.find('price_range').text if resto.find('price_range') is not None else ''
+        delivery = resto.find('delivery').text if resto.find('delivery') is not None else ''
         evaluation = float(resto.find('evaluation').text) if resto.find('evaluation') is not None else 0.0
         address = resto.find('address')
         city = address.find('city').text if address is not None and address.find('city') is not None else ''
@@ -75,7 +77,7 @@ def parse_xml_and_insert_data(xml_file_path, conn):
         opening_hours = resto.find('opening_hours/opening').text if resto.find('opening_hours/opening') is not None else '00:00:00'
         closing_hours = resto.find('opening_hours/closing').text if resto.find('opening_hours/closing') is not None else '00:00:00'
         
-        cursor.execute("INSERT INTO Restaurants (name, type, city, country, street, number, zipcode, opening_hours, closing_hours, price_range, evaluation) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", (name, type_cuisine, city, country, street, number, zipcode, opening_hours, closing_hours, price_range, evaluation))
+        cursor.execute("INSERT INTO Restaurants (name, type, city, country, street, number, zipcode, opening_hours, closing_hours, price_range, delivery, evaluation) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", (name, type_cuisine, city, country, street, number, zipcode, opening_hours, closing_hours, price_range, delivery, evaluation))
         restaurant_id = cursor.lastrowid
 
         for dish in resto.find('menu').findall('dish'):
