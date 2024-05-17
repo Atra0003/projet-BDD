@@ -21,6 +21,7 @@ def create_database_and_tables(conn):
                 closing_hours TIME,
                 price_range VARCHAR(50),
                 delivery VARCHAR(3),
+                CHECK (delivery IN ('Yes', 'No')),
                 evaluation DECIMAL(3,1),
                 CONSTRAINT chk_price_range CHECK (price_range IN ('bas', 'haut', 'moyen'))
 
