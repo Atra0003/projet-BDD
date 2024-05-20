@@ -317,13 +317,13 @@ class MainWindow(QMainWindow):
             self.ui = Ui_ConsulterAvisModo()
             self.ui.setupUi(self)
             # On recupere les donnees de connexion entrees par l'utilisateur
-            self.ui.buttonBoxOkRetour.accepted.connect(self.get_modo_consulter_avis_data)
+            self.ui.buttonBoxOkRetour.accepted.connect(self.get_consulter_avis_data)
             # Si l'utilisateur clique sur le bouton "Cancel", on retourne au menu principal du client ou bien du restaurateur
             if self.isRestaurateur:
-                self.ui.pushButtonRetour.clicked.connect(self.retour_menu_restaurateur)
+                self.ui.buttonBoxOkRetour.rejected.connect(self.retour_menu_restaurateur)
                 self.ui.pushButtonDelete.clicked.connect(self.supprimer_avis)
             else:
-                self.ui.pushButtonRetour.clicked.connect(self.retour_menu_client)
+                self.ui.buttonBoxOkRetour.rejected.connect(self.retour_menu_client)
                 self.ui.pushButtonDelete.clicked.connect(self.supprimer_avis)
 
         else:
@@ -335,31 +335,7 @@ class MainWindow(QMainWindow):
             if self.isRestaurateur:
                 self.ui.buttonBoxOkRetour.rejected.connect(self.retour_menu_restaurateur)
             else:
-                self.ui.buttonBoxOkRetour.rejected.connect(self.retour_menu_client)
-    
-    def get_modo_consulter_avis_data(self):
-        """
-        Recuperation des donnees de consultation d'avis
-        """
-        nomRestaurant = self.ui.lineCheckRestoName.text()
-        parNote = self.ui.lineEditParNote.text()
-        parTypeNourriture = self.ui.lineEditParNourriture.text()
-        parGammePrix = self.ui.lineEditParPrix.text()
-        listeAvis = self.ui.listWidgetAvis.selectedItems()
-        print("Nom du restaurant: ", nomRestaurant)
-        print("Par note: ", parNote)
-        print("Par type de nourriture: ", parTypeNourriture)
-        print("Par gamme de prix: ", parGammePrix)
-        print("Liste des avis: ", listeAvis)
-        # On utilise les donnees recuperees et cherche les avis dans la bdd
-        if self.consulter_avis_query(nomRestaurant, parNote, parTypeNourriture, parGammePrix, listeAvis):
-            print("Avis trouve")
-            self.ui.labelError.setText("Avis trouve. Merci!")
-            self.ui.labelError.setStyleSheet("color: rgb(0, 255, 0);")
-        else:
-            self.ui.labelError.setText("Aucun avis trouve. Veuillez reessayer.")
-            self.ui.labelError.setStyleSheet("color: rgb(255, 0, 0);")
-
+                self.ui.buttonBoxOkRetour.rejected.connect(self.retour_menu_client) 
 
     def get_consulter_avis_data(self):
         """
@@ -483,8 +459,16 @@ class MainWindow(QMainWindow):
         """
         Fenetre de suppression d'avis
         """
+        selected_items = self.ui.listWidgetAvis.selectedItems()
+        print("Avis selectionne: ", selected_items)
+        if not selected_items:
+            print("Aucun avis sélectionné.")
+            return
+        avisASupprimer = selected_items[0].text()
+        print("Avis a supprimer: ", avisASupprimer)
         self.ui = Ui_SupprimerAvisModo()
         self.ui.setupUi(self)
+        self.ui.textBrowserAvisASupprimer.setText(avisASupprimer)
         # On recupere les donnees de connexion entrees par l'utilisateur
         self.ui.pushButtonDelete.clicked.connect(self.get_supprimer_avis_data)
         # Si l'utilisateur clique sur le bouton "Cancel", on retourne au menu principal du client ou bien du restaurateur
@@ -497,11 +481,68 @@ class MainWindow(QMainWindow):
         """
         Recuperation des donnees de suppression d'avis
         """
-        avisSupprime = self.ui.textBrowserAvisASupprimer.toPlainText()
+        avisSupprime = self.ui.textBrowserAvisASupprimer.toPlainText().split(" : ")[-1]
         justificatif = self.ui.plainTextEditJustificationSuppression.toPlainText()
         print("Avis supprime: ", avisSupprime)
         print("Justificatif: ", justificatif)
-        # On utilise les donnees recuperees
+        # On supprime l'avis des avis valides et le deplace dans les avis invalides avec le justificatif
+        if self.supprimer_avis_query(avisSupprime, justificatif):
+            print("Avis supprime avec succes")
+            self.ui.labelError.setText("Avis supprime avec succes. Merci!")
+            self.ui.labelError.setStyleSheet("color: rgb(0, 255, 0);")
+        else:
+            self.ui.labelError.setText("Erreur lors de la suppression de l'avis. Veuillez reessayer.")
+            self.ui.labelError.setStyleSheet("color: rgb(255, 0, 0);")
+    
+    def supprimer_avis_query(self, avisSupprime, justificatif):
+        """
+        Requete de suppression d'avis
+        """
+        try:
+            with self.connection.cursor() as cursor:
+                # On recupere les infor de l'avis a supprimer
+                query_select = """
+                SELECT *
+                FROM notevalid
+                WHERE commentaire = %s
+                """
+                cursor.execute(query_select, (avisSupprime,))
+                avis = cursor.fetchone()
+                if not avis:
+                    print("Avis non trouve")
+                    return False
+                
+                # On deplacer l'avis dans noteremoved
+                self.deplacer_avis_invalide(avis, justificatif)
+                
+                # On supprimer l'avis de notevalid
+                query_delete = "DELETE FROM notevalid WHERE commentaire=%s"
+                cursor.execute(query_delete, (avisSupprime,))
+                self.connection.commit()
+                
+                return True
+        except Error as e:
+            print(f"Erreur lors de la requete: {e}")
+            return False
+    
+    def deplacer_avis_invalide(self, avis, justificatif):
+        """
+        Deplace l'avis supprime dans les avis invalides
+        """
+        try:
+            with self.connection.cursor() as cursor:
+                query = """
+                INSERT INTO noteremoved (id, commentaire, note, date, recommandation, resto, note_service_livraison, 
+                date_commentaire, menu_teste, prix_paye, heureA, heureD, client, modo)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """
+                cursor.execute(query, (avis[0], avis[1], avis[2], avis[3], avis[4], avis[5], avis[6],
+                                          avis[7], avis[8], avis[9], avis[10], avis[11], avis[12], justificatif))
+                self.connection.commit()
+                return True
+        except Error as e:
+            print(f"Erreur lors de la requete: {e}")
+            return False
 
     def retour_menu_client(self):
         """
