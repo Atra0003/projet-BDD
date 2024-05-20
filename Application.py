@@ -1,4 +1,5 @@
 import sys
+from datetime import datetime
 import mysql.connector
 from mysql.connector import Error
 from PyQt5.QtWidgets import QApplication, QMainWindow
@@ -11,6 +12,7 @@ from UI.UIAjouterAvis import Ui_AjouterAvis
 from UI.UIConsulterAvis import Ui_ConsulterAvis
 from UI.UIConsulterResto import Ui_ConsulterResto
 from UI.UIAjouterNote import Ui_AjouterNote
+from UI.UIVersAjouterNote import Ui_VersAjouterNote
 from UI.UIAjouterResto import Ui_AjouterResto
 from UI.UIModifierResto import Ui_ModifierResto
 from UI.UIStats import Ui_Stats
@@ -28,6 +30,8 @@ class MainWindow(QMainWindow):
         self.ui.setupUi(self)
         self.ui.buttonSignIn.clicked.connect(self.open_conexion_window)
         self.ui.buttonSignUp.clicked.connect(self.open_inscription_window)
+        self.nom = ""
+        self.prenom = ""
         self.isModerateur = False
         self.isRestaurateur = False
         # Connexion a la bdd
@@ -66,8 +70,10 @@ class MainWindow(QMainWindow):
         """
         Recuperation des donnees de connexion
         """
-        lName = self.ui.lineLName.text()
-        fName = self.ui.lineFName.text()
+        self.nom = self.ui.lineLName.text()
+        self.prenom = self.ui.lineFName.text()
+        lName = self.nom
+        fName = self.prenom
         password = self.ui.linePassword.text()
         self.isRestaurateur = self.ui.checkBoxIsRestaurateur.isChecked()
         self.isModerateur = self.ui.checkBoxIsModerateur.isChecked()
@@ -103,8 +109,6 @@ class MainWindow(QMainWindow):
             print(f"Erreur lors de la requete: {e}")
             return False
 
-
-
     def open_inscription_window(self):
         """
         Ouverture de la fenetre d'inscription
@@ -118,8 +122,10 @@ class MainWindow(QMainWindow):
         """
         Recuperation des donnees d'inscription
         """
-        lName = self.ui.lineLName.text()
-        fName = self.ui.lineFName.text()
+        self.nom = self.ui.lineLName.text()
+        self.prenom = self.ui.lineFName.text()
+        lName = self.nom
+        fName = self.prenom
         password = self.ui.linePassword.text()
         adRue = self.ui.lineAdRue.text()
         adNumero = self.ui.lineAdNum.text()
@@ -209,9 +215,9 @@ class MainWindow(QMainWindow):
         Recuperation des donnees d'ajout d'avis
         """
         nomRestaurant = self.ui.lineEditRestoName.text()
-        dateVisite = self.ui.dateEdit.date().toString("dd/MM/yyyy")
-        heureDebut = self.ui.timeEditHeureDebut.time().toString("hh:mm")
-        heureFin = self.ui.timeEditHeureFin.time().toString("hh:mm")
+        dateVisite = self.ui.dateEdit.date().toString("yyyy-MM-dd")
+        heureDebut = self.ui.timeEditHeureDebut.time().toString("hh")
+        heureFin = self.ui.timeEditHeureFin.time().toString("hh")
         platsCommandes = self.ui.plainTextEditPlatCommande.toPlainText()
         prix = self.ui.lineEditPrixPaye.text()
         print("Nom du restaurant: ", nomRestaurant)
@@ -220,7 +226,88 @@ class MainWindow(QMainWindow):
         print("Heure de fin: ", heureFin)
         print("Plats commandes: ", platsCommandes)
         print("Prix paye: ", prix)
-        # On utilise les donnees recuperees
+        # On ajoute l'avis dans la bdd
+        id_avis = self.ajouter_avis_query(nomRestaurant, dateVisite, heureDebut, heureFin, platsCommandes, prix)
+        if id_avis > 0:
+            print("Avis ajoute avec succes")
+            self.ui.labelError.setText("Avis ajoute avec succes. Merci!")
+            self.ui.labelError.setStyleSheet("color: rgb(0, 255, 0);")
+            self.vers_ajouter_note(nomRestaurant, id_avis)
+        else:
+            self.ui.labelError.setText("Erreur lors de l'ajout de l'avis. Veuillez reessayer.")
+
+    def ajouter_avis_query(self, nomRestaurant, dateVisite, heureDebut, heureFin, platsCommandes, prix):
+        """
+        Requete d'ajout d'avis
+        """
+        try:
+            with self.connection.cursor() as cursor:
+                query = "INSERT INTO notevalid (resto, date, heureA, heureD, menu_teste, prix_paye, client) VALUES (%s, %s, %s, %s, %s, %s, %s)"
+                client = self.prenom + " " + self.nom
+                cursor.execute(query, (nomRestaurant, dateVisite, heureDebut, heureFin, platsCommandes, prix, client))
+                self.connection.commit()
+                avis_id = cursor.lastrowid  # Get the id of the inserted row
+                print("Avis id: ", avis_id)
+                return avis_id
+        except Error as e:
+            print(f"Erreur lors de la requete: {e}")
+            return False
+
+    def vers_ajouter_note(self, nomRestaurant, id_avis):
+        """
+        Fenetre d'ajout de note
+        """
+        self.ui = Ui_VersAjouterNote()
+        self.ui.setupUi(self)
+        self.ui.labelNomResto.setText(nomRestaurant)
+        # On recupere les donnees de connexion entrees par l'utilisateur
+        self.ui.buttonBoxOkRetour.accepted.connect(lambda: self.get_ajouter_note_avis(id_avis))
+        # Si l'utilisateur clique sur le bouton "Cancel", on retourne au menu principal du client
+        self.ui.buttonBoxOkRetour.rejected.connect(self.retour_menu_client)
+
+    def get_ajouter_note_avis(self, id_avis):
+        """
+        Recuperation des donnees d'ajout de note
+        """
+        commentaire = self.ui.plainTextEditCommentaire.toPlainText()
+        note = self.ui.spinBoxNoteService.value()
+        note_service_livraison = self.ui.spinBoxNoteLivraison.value()
+        recommendation = self.ui.comboBoxRecommendation.currentText()
+        print("Commentaire: ", commentaire)
+        print("Note: ", note)
+        print("Note service livraison: ", note_service_livraison)
+        print("Recommendation: ", recommendation)
+        # On ajoute la note dans la bdd
+        if self.vers_ajouter_note_query(id_avis, commentaire, note, note_service_livraison, recommendation):
+            print("Note ajoutee avec succes")
+            self.ui.labelError.setText("Note ajoutee avec succes. Merci!")
+            self.ui.labelError.setStyleSheet("color: rgb(0, 255, 0);")
+        else:
+            self.ui.labelError.setText("Erreur lors de l'ajout de la note. Veuillez reessayer.")
+        
+    def vers_ajouter_note_query(self, id_avis, commentaire, note, note_service_livraison, recommendation):
+        """
+        Requete d'ajout de note
+        """
+        try:
+            with self.connection.cursor() as cursor:
+                query = """
+                INSERT INTO notevalid (id, commentaire, note, recommandation, note_service_livraison, date_commentaire)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE
+                    commentaire = VALUES(commentaire),
+                    note = VALUES(note),
+                    recommandation = VALUES(recommandation),
+                    note_service_livraison = VALUES(note_service_livraison),
+                    date_commentaire = VALUES(date_commentaire)
+                """
+                date_commentaire = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                cursor.execute(query, (id_avis, commentaire, note, recommendation, note_service_livraison, date_commentaire))
+                self.connection.commit()
+                return True
+        except Error as e:
+            print(f"Erreur lors de la requete: {e}")
+            return False
 
     def consulter_avis(self):
         """
@@ -264,7 +351,15 @@ class MainWindow(QMainWindow):
         print("Par type de nourriture: ", parTypeNourriture)
         print("Par gamme de prix: ", parGammePrix)
         print("Liste des avis: ", listeAvis)
-        # On utilise les donnees recuperees
+        # On utilise les donnees recuperees et cherche les avis dans la bdd
+        if self.consulter_avis_query(nomRestaurant, parNote, parTypeNourriture, parGammePrix, listeAvis):
+            print("Avis trouve")
+            self.ui.labelError.setText("Avis trouve. Merci!")
+            self.ui.labelError.setStyleSheet("color: rgb(0, 255, 0);")
+        else:
+            self.ui.labelError.setText("Aucun avis trouve. Veuillez reessayer.")
+            self.ui.labelError.setStyleSheet("color: rgb(255, 0, 0);")
+
 
     def get_consulter_avis_data(self):
         """
@@ -274,13 +369,51 @@ class MainWindow(QMainWindow):
         parNote = self.ui.lineEditParNote.text()
         parTypeNourriture = self.ui.lineEditParNourriture.text()
         parGammePrix = self.ui.lineEditParPrix.text()
-        listeAvis = self.ui.listWidgetAvis.selectedItems()
         print("Nom du restaurant: ", nomRestaurant)
         print("Par note: ", parNote)
         print("Par type de nourriture: ", parTypeNourriture)
         print("Par gamme de prix: ", parGammePrix)
-        print("Liste des avis: ", listeAvis)
-        # On utilise les donnees recuperees
+        # On utilise les donnees recuperees et cherche les avis dans la bdd
+        listeResultat = self.consulter_avis_query(nomRestaurant, parNote, parTypeNourriture, parGammePrix)
+        if listeResultat:
+            print("Avis trouve")
+            listeAvis = [f"{avis[0]} : {avis[1]}" for avis in listeResultat]
+            print("Liste des avis: ", listeAvis)
+            self.ui.listWidgetAvis.addItems(listeAvis)
+        else:
+            print("Aucun avis trouve")
+    
+    def consulter_avis_query(self, nomRestaurant, parNote, parTypeNourriture, parGammePrix):
+        """
+        Requete de consultation d'avis
+        """
+        try:
+            with self.connection.cursor() as cursor:
+                query = """
+                SELECT client, commentaire FROM notevalid
+                WHERE 1=1
+                """
+                params = []
+                if nomRestaurant != "Nom du Restaurant" and nomRestaurant != "":
+                    query += " AND resto=%s"
+                    params.append(nomRestaurant)
+                if parNote != "Par Note" or parNote != "":
+                    query += " AND note=%s"
+                    params.append(parNote)
+                if parTypeNourriture != "Par Type de Nourriture" and parTypeNourriture != "":
+                    query += " AND menu_teste=%s"
+                    params.append(parTypeNourriture)
+                if parGammePrix != "Par Game de Prix" and parGammePrix != "":
+                    query += " AND prix_paye=%s"
+                    params.append(parGammePrix)
+                cursor.execute(query, params)
+                result = cursor.fetchall()
+                print("Resultat de la requete: ", result)
+                self.ui.listWidgetAvis.clear()
+                return result
+        except Error as e:
+            print(f"Erreur lors de la requete: {e}")
+            return False
 
     def consulter_resto(self):
         """
@@ -288,8 +421,63 @@ class MainWindow(QMainWindow):
         """
         self.ui = Ui_ConsulterResto()
         self.ui.setupUi(self)
+        # On recupere les donnees de connexion entrees par l'utilisateur
+        self.ui.buttonBoxOkRetour.accepted.connect(self.get_consulter_resto_data)
         # Si l'utilisateur clique sur le bouton "Cancel", on retourne au menu principal du client
         self.ui.buttonBoxOkRetour.rejected.connect(self.retour_menu_client)
+
+    def get_consulter_resto_data(self):
+        """
+        Recuperation des donnees de consultation de restaurant
+        """
+        nomRestaurant = self.ui.lineCheckRestoName.text()
+
+        # On utilise les donnees recuperees et cherche les restaurants dans la bdd
+        listeResultat = self.consulter_resto_query(nomRestaurant)
+        if listeResultat:
+            print("Restaurant trouve")
+            self.ui.labelInfoRestoAdRue.setText(listeResultat[0][5])
+            self.ui.labelInfoRestoAdVille.setText(listeResultat[0][3])
+            self.ui.labelInfoRestoAdPays.setText(listeResultat[0][4])
+            self.ui.labelInfoRestoAdNumero.setText(str(listeResultat[0][6]))
+            self.ui.labelInfoRestoAdCodePostal.setText(str(listeResultat[0][7]))
+            self.ui.labelInfoEvaluation.setText(str(listeResultat[0][12]))
+            self.ui.labelHeureOuverture.setText(str(listeResultat[0][8]))
+            self.ui.labelHeureFermeture.setText(str(listeResultat[0][9]))
+            self.ui.labelInfoGammePrix.setText(listeResultat[0][10])
+            self.ui.labelInfoTypeNourriture.setText(listeResultat[0][2])
+            if listeResultat[0][11] == "Yes":
+                self.ui.checkBoxFaitLivraison.setChecked(True)
+
+            self.ui.labelError.setText("Restaurant trouve. Merci!")
+            self.ui.labelError.setStyleSheet("color: rgb(0, 255, 0);")
+            print("Liste des infos du restaurant: ", listeResultat)
+        else:
+            self.ui.labelError.setText("Aucun restaurant trouve. Veuillez reessayer.")
+            self.ui.labelError.setStyleSheet("color: rgb(255, 0, 0);")
+    
+    def consulter_resto_query(self, nomRestaurant):
+        """
+        Requete de consultation de restaurant
+        """
+        try:
+            with self.connection.cursor() as cursor:
+                query = """
+                SELECT * FROM restaurants
+                WHERE 1=1
+                """
+                params = []
+                if nomRestaurant != "Nom du Restaurant" or nomRestaurant != "":
+                    query += " AND name=%s"
+                    params.append(nomRestaurant)
+                
+                cursor.execute(query, params)
+                result = cursor.fetchall()
+                print("Resultat de la requete: ", result)
+                return result
+        except Error as e:
+            print(f"Erreur lors de la requete: {e}")
+            return False
     
     def supprimer_avis(self):
         """
@@ -347,16 +535,38 @@ class MainWindow(QMainWindow):
         Recuperation des donnees d'ajout de note
         """
         nomRestaurant = self.ui.lineEditRestoName.text()
-        dateVisite = self.ui.dateEditVisite.date().toString("dd/MM/yyyy")
+        dateVisite = self.ui.dateEditVisite.date().toString("yyyy-MM-dd")
         commentaire = self.ui.plainTextEditCommentaire.toPlainText()
-        note = self.ui.spinBoxNote.value()
+        noteLivraison = self.ui.spinBoxNoteLivraison.value()
+        noteService = self.ui.spinBoxNoteService.value()
         recommendation = self.ui.comboBoxRecommendation.currentText()
         print("Nom du restaurant: ", nomRestaurant)
         print("Date de visite: ", dateVisite)
         print("Commentaire: ", commentaire)
-        print("Note: ", note)
+        print("Note de livraison: ", noteLivraison)
+        print("Note de service: ", noteService)
         print("Recommendation: ", recommendation)
-        # On utilise les donnees recuperees
+        # On ajoute la note dans la bdd
+        if self.ajouter_note_query(nomRestaurant, dateVisite, commentaire, noteLivraison, noteService, recommendation):
+            print("Note ajoutee avec succes")
+            self.ui.labelError.setText("Note ajoutee avec succes. Merci!")
+            self.ui.labelError.setStyleSheet("color: rgb(0, 255, 0);")
+        else:
+            self.ui.labelError.setText("Erreur lors de l'ajout de la note. Veuillez reessayer.")
+
+    def ajouter_note_query(self, nomRestaurant, dateVisite, commentaire, noteLivraison, noteService, recommendation):
+        """
+        Requete d'ajout de note
+        """
+        try:
+            with self.connection.cursor() as cursor:
+                query = "INSERT INTO notevalid (resto, date, commentaire, note_service_livraison, note, recommandation) VALUES (%s, %s, %s, %s, %s, %s)"
+                cursor.execute(query, (nomRestaurant, dateVisite, commentaire, noteLivraison, noteService, recommendation))
+                self.connection.commit()
+                return True
+        except Error as e:
+            print(f"Erreur lors de la requete: {e}")
+            return False
 
     def ajouter_restaurant(self):
         """
@@ -381,9 +591,14 @@ class MainWindow(QMainWindow):
         adNumero = self.ui.lineAdNum.text()
         typeNourriture = self.ui.lineTypeNourriture.text()
         gammePrix = self.ui.comboBoxGammePrix.currentText()
-        debutOuverture = self.ui.timeEditHeureDebut.time().toString("hh:mm")
-        finOuverture = self.ui.timeEditHeureFin.time().toString("hh:mm")
-        faitLivraison = self.ui.checkBoxFaitLivraison.isChecked()
+        # Prend uniquement le dernier mot de la gamme de prix
+        gammePrix = gammePrix.split(" ")[-1]
+        debutOuverture = self.ui.timeEditHeureDebut.time().toString("mm:hh")
+        finOuverture = self.ui.timeEditHeureFin.time().toString("mm:hh")
+        if self.ui.checkBoxFaitLivraison.isChecked():
+            faitLivraison = "Yes"
+        else:
+            faitLivraison = "No"
         print("Nom du restaurant: ", nomRestaurant)
         print("Adresse: ", adRue, adVille, adPays, adCodePostal, adNumero)
         print("Type de nourriture: ", typeNourriture)
@@ -391,7 +606,43 @@ class MainWindow(QMainWindow):
         print("Heure d'ouverture: ", debutOuverture)
         print("Heure de fermeture: ", finOuverture)
         print("Fait livraison: ", faitLivraison)
-        # On utilise les donnees recuperees
+        # On ajoute le restaurant dans la bdd
+        if self.ajouter_restaurant_query(nomRestaurant, adRue, adNumero, adVille, adCodePostal, adPays, typeNourriture, gammePrix, debutOuverture, finOuverture, faitLivraison):
+            print("Restaurant ajoute avec succes")
+            self.ui.labelError.setText("Restaurant ajoute avec succes. Merci!")
+            self.ui.labelError.setStyleSheet("color: rgb(0, 255, 0);")
+            # Ajoute le nom du restaurant au restaurateur
+            self.ajouter_restaurant_restaurateur(nomRestaurant)
+        else:
+            self.ui.labelError.setText("Erreur lors de l'ajout du restaurant. Veuillez reessayer.")
+
+    def ajouter_restaurant_query(self, nomRestaurant, adRue, adNumero, adVille, adCodePostal, adPays, typeNourriture, gammePrix, debutOuverture, finOuverture, faitLivraison):
+        """
+        Requete d'ajout de restaurant
+        """
+        try:
+            with self.connection.cursor() as cursor:
+                query = "INSERT INTO restaurants (name, street, number, city, zipcode, country, type, price_range, opening_hours, closing_hours, delivery) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+                cursor.execute(query, (nomRestaurant, adRue, adNumero, adVille, adCodePostal, adPays, typeNourriture, gammePrix, debutOuverture, finOuverture, faitLivraison))
+                self.connection.commit()
+                return True
+        except Error as e:
+            print(f"Erreur lors de la requete: {e}")
+            return False
+    
+    def ajouter_restaurant_restaurateur(self, nomRestaurant):
+        """
+        Requete d'ajout de restaurant au restaurateur
+        """
+        try:
+            with self.connection.cursor() as cursor:
+                query = "UPDATE restaurateurs SET restaurant=%s WHERE lastname=%s AND firstname=%s"
+                cursor.execute(query, (nomRestaurant, self.nom, self.prenom))
+                self.connection.commit()
+                return True
+        except Error as e:
+            print(f"Erreur lors de la requete: {e}")
+            return False
     
     def modifier_restaurant(self):
         """
@@ -416,9 +667,14 @@ class MainWindow(QMainWindow):
         adNumero = self.ui.lineAdNum.text()
         parTypeNourriture = self.ui.lineTypeNourriture.text()
         parGammePrix = self.ui.comboBoxGammePrix.currentText()
-        debutOuverture = self.ui.timeEditHeureDebut.time().toString("hh:mm")
-        finOuverture = self.ui.timeEditHeureFin.time().toString("hh:mm")
-        faitLivraison = self.ui.checkBoxFaitLivraison.isChecked()
+        # Prend uniquement le dernier mot de la gamme de prix
+        parGammePrix = parGammePrix.split(" ")[-1]
+        debutOuverture = self.ui.timeEditHeureDebut.time().toString("mm:hh")
+        finOuverture = self.ui.timeEditHeureFin.time().toString("mm:hh")
+        if self.ui.checkBoxFaitLivraison.isChecked():
+            faitLivraison = "Yes"
+        else:
+            faitLivraison = "No"
         print("Nom du restaurant: ", nomRestaurant)
         print("Adresse: ", adRue, adVille, adPays, adCodePostal, adNumero)
         print("Par type de nourriture: ", parTypeNourriture)
@@ -426,8 +682,55 @@ class MainWindow(QMainWindow):
         print("Heure d'ouverture: ", debutOuverture)
         print("Heure de fermeture: ", finOuverture)
         print("Fait livraison: ", faitLivraison)
-        
-        # On utilise les donnees recuperees
+        # On verifie que l'utilisateur est bien le proprietaire du restaurant
+        if self.verifier_proprietaire_restaurant(nomRestaurant):
+            # On modifie le restaurant dans la bdd
+            if self.modifier_restaurant_query(nomRestaurant, adRue, adNumero, adVille, adCodePostal, adPays, parTypeNourriture, parGammePrix, debutOuverture, finOuverture, faitLivraison):
+                print("Restaurant modifie avec succes")
+                self.ui.labelError.setText("Restaurant modifie avec succes. Merci!")
+                self.ui.labelError.setStyleSheet("color: rgb(0, 255, 0);")
+            else:
+                self.ui.labelError.setText("Erreur lors de la modification du restaurant. Veuillez reessayer.")
+                self.ui.labelError.setStyleSheet("color: rgb(255, 0, 0);")
+        else:
+            self.ui.labelError.setText("Vous n'etes pas le proprietaire. Veuillez reessayer.")
+            self.ui.labelError.setStyleSheet("color: rgb(255, 0, 0);")
+    
+    def verifier_proprietaire_restaurant(self, nomRestaurant):
+        """
+        Verifie si l'utilisateur est bien le proprietaire du restaurant
+        """
+        try:
+            with self.connection.cursor() as cursor:
+                query = "SELECT restaurant FROM restaurateurs WHERE lastname=%s AND firstname=%s"
+                cursor.execute(query, (self.nom, self.prenom))
+                result = cursor.fetchone()
+                for restaurant in result:
+                    if restaurant == nomRestaurant:
+                        return True
+                return False
+        except Error as e:
+            print(f"Erreur lors de la requete: {e}")
+            return False
+
+    def modifier_restaurant_query(self, nomRestaurant, adRue, adNumero, adVille, adCodePostal, adPays, parTypeNourriture, parGammePrix, debutOuverture, finOuverture, faitLivraison):
+        """
+        Requete de modification de restaurant
+        """
+        try:
+            with self.connection.cursor() as cursor:
+                query = """
+                UPDATE restaurants
+                SET street=%s, number=%s, city=%s, zipcode=%s, country=%s, type=%s, price_range=%s, opening_hours=%s, closing_hours=%s, delivery=%s
+                WHERE name=%s
+                """
+                cursor.execute(query, (adRue, adNumero, adVille, adCodePostal, adPays, parTypeNourriture, parGammePrix, debutOuverture, finOuverture, faitLivraison, nomRestaurant))
+                self.connection.commit()
+                return True
+        except Error as e:
+            print(f"Erreur lors de la requete: {e}")
+            return False
+
 
     def ajouter_plat(self):
         """
@@ -447,41 +750,97 @@ class MainWindow(QMainWindow):
         """
         Recuperation des donnees d'ajout d'allergene
         """
-        allergenes = self.ui.lineCheckAllergeneNouveauPlat.text()
-        self.listeAllergenes.append(allergenes)
+        nomRestaurant = self.ui.lineCheckRestoName.text()
+        if self.verifier_proprietaire_restaurant(nomRestaurant):
+            allergenes = self.ui.lineCheckAllergeneNouveauPlat.text()
+            self.listeAllergenes.append(allergenes)
     
     def get_ajouter_plat_data(self):
         """
         Recuperation des donnees d'ajout de plat
         """
         nomRestaurant = self.ui.lineCheckRestoName.text()
-        listeMenu = self.ui.listWidgetListMenu.selectedItems()
-        nomNvPlat = self.ui.lineCheckNomNouveauPlat.text()
-        prixNvPlat = self.ui.doubleSpinBoxPrixNouveauPlat.value()
-        listePlatsAjoutes = self.ui.listWidgetPlatAjoute.selectedItems()
+        
+        # On verifie que l'utilisateur est bien le proprietaire du restaurant
+        if self.verifier_proprietaire_restaurant(nomRestaurant):
+            listeMenu = self.ui.listWidgetListMenu.selectedItems()
+            nomNvPlat = self.ui.lineCheckNomNouveauPlat.text()
+            prixNvPlat = self.ui.doubleSpinBoxPrixNouveauPlat.value()
+            listePlatsAjoutes = self.ui.listWidgetPlatAjoute.selectedItems()
+        
+            self.listeNvPlats[nomNvPlat] = self.listeAllergenes
+            listePlatsAjoutes.append(nomNvPlat)
+            self.listeAllergenes = []
+
+            print("Nom du restaurant: ", nomRestaurant)
+            print("Liste des menus: ", listeMenu)
+            print("Nom du nouveau plat: ", nomNvPlat)
+            print("Prix du nouveau plat: ", prixNvPlat)
+            print("Liste des plats ajoutes: ", listePlatsAjoutes)
+            print("Liste des nouveaux plats: ", self.listeNvPlats)
+            print("Liste des allergenes: ", self.listeAllergenes)
+
+            print("Liste des plats ajoutes mise a jour: ", listePlatsAjoutes)
+        
+            self.ui.listWidgetPlatAjoute.clear()
+            # On ajoute la liste des nouveaux plats a la liste des plats ajoutes
+            for plat in self.listeNvPlats:
+                if plat not in listePlatsAjoutes:
+                    listePlatsAjoutes.append(plat)
+            last_plat = list(self.listeNvPlats.keys())[-1]
+            # On ajoute les nouveaux plats dans la base de donnees
+            if self.ajouter_plats_query(nomRestaurant, last_plat, prixNvPlat):
+                # On met a jour la liste des plats dans le widget listWidgetListMenu
+                self.ui.listWidgetPlatAjoute.clear()
+                self.ui.listWidgetPlatAjoute.addItems(listePlatsAjoutes)
+                self.ui.labelError.setText("Plats ajoutes avec succes. Merci!")
+                self.ui.labelError.setStyleSheet("color: rgb(0, 255, 0);")
+            else:
+                self.ui.labelError.setText("Erreur lors de l'ajout des plats. Veuillez reessayer.")
+                self.ui.labelError.setStyleSheet("color: rgb(255, 0, 0);")
+        else:
+            self.ui.labelError.setText("Vous n'etes pas le proprietaire. Veuillez reessayer.")
+            self.ui.labelError.setStyleSheet("color: rgb(255, 0, 0);")
     
-        self.listeNvPlats[nomNvPlat] = self.listeAllergenes
-        listePlatsAjoutes.append(nomNvPlat)
-        self.listeAllergenes = []
+    def ajouter_plats_query(self, nomRestaurant, nvPlat, prixNvPlat):
+        """
+        Requete d'ajout de plats
+        """
+        try:
+            with self.connection.cursor() as cursor:
+                # On recupere l'identifiant du restaurant
+                cursor.execute("SELECT id FROM restaurants WHERE name = %s", (nomRestaurant,))
+                restaurant_id = cursor.fetchone()
+                if not restaurant_id:
+                    raise ValueError("Restaurant non trouve.")
+                restaurant_id = restaurant_id[0]
 
-        print("Nom du restaurant: ", nomRestaurant)
-        print("Liste des menus: ", listeMenu)
-        print("Nom du nouveau plat: ", nomNvPlat)
-        print("Prix du nouveau plat: ", prixNvPlat)
-        print("Liste des plats ajoutes: ", listePlatsAjoutes)
-        print("Liste des nouveaux plats: ", self.listeNvPlats)
-        # On utilise les donnees recuperees
-        
-        # On ajoute la liste des nouveaux plats a la liste des plats ajoutes
-        for plat in self.listeNvPlats:
-            if plat not in listePlatsAjoutes:
-                listePlatsAjoutes.append(plat)
+                # On ajoute le nouveau plat
+                query = "INSERT INTO dishes (restaurant_id, name, price) VALUES (%s, %s, %s)"
+                cursor.execute(query, (restaurant_id, nvPlat, prixNvPlat))
+                dish_id = cursor.lastrowid
 
-        print("Liste des plats ajoutes mise a jour: ", listePlatsAjoutes)
-        
-        # On met a jour la liste des plats dans le widget listWidgetListMenu
-        self.ui.listWidgetPlatAjoute.clear()
-        self.ui.listWidgetPlatAjoute.addItems(listePlatsAjoutes)
+                # On ajoute les allergenes
+                if nvPlat in self.listeNvPlats:
+                    for allergen in self.listeNvPlats[nvPlat]:
+                        # On recupere ou bien insere l'identifiant de l'allergene
+                        cursor.execute("SELECT id FROM allergens WHERE name = %s", (allergen,))
+                        allergen_id = cursor.fetchone()
+                        if not allergen_id:
+                            cursor.execute("INSERT INTO allergens (name) VALUES (%s)", (allergen,))
+                            allergen_id = cursor.lastrowid
+                        else:
+                            allergen_id = allergen_id[0]
+
+                        # On insere dans la table dish_allergens
+                        cursor.execute("INSERT INTO dish_allergens (dish_id, allergen_id) VALUES (%s, %s)",
+                                    (dish_id, allergen_id))
+
+                self.connection.commit()
+                return True
+        except Exception as e:
+            print(f"Erreur lors de la requête: {e}")
+            return False
 
     def consulter_statistique(self):
         """
@@ -499,10 +858,46 @@ class MainWindow(QMainWindow):
         Recuperation des donnees de consultation de statistique
         """
         nomRestaurant = self.ui.lineRestoName.text()
-        nombreAvis = self.ui.labelNbrAvisRes.text()
-        noteMoyenne = self.ui.labelNoteMoyenneRes.text()
-        platPopulaire = self.ui.labelPlatPopulaireRes.text()
+
         # On recupere les donnees de la bdd et on les affiche
+        listeStatistiques = self.consulter_statistique_query(nomRestaurant)
+        if listeStatistiques:
+            nombreAvis, noteMoyenne, noteMoyenneLivraison,platPopulaire = listeStatistiques[0]
+            self.ui.labelNbrAvisRes.setText(str(nombreAvis))
+            self.ui.labelNoteMoyenneRes.setText(str(noteMoyenne))
+            self.ui.labelNoteMoyenneLivraisonRes.setText(str(noteMoyenneLivraison))
+            self.ui.labelPlatPopulaireRes.setText(platPopulaire)
+            print("Statistiques trouves")
+            self.ui.labelError.setText("Statistiques trouves. Merci!")
+            self.ui.labelError.setStyleSheet("color: rgb(0, 255, 0);")
+        else:
+            print("Aucune statistique trouve")
+            self.ui.labelError.setText("Aucune statistique trouve. Veuillez reessayer.")
+            self.ui.labelError.setStyleSheet("color: rgb(255, 0, 0);")
+
+    def consulter_statistique_query(self, nomRestaurant):
+        """
+        Requete de consultation de statistique
+        """
+        try:
+            with self.connection.cursor() as cursor:
+                query = """
+                SELECT
+                    (SELECT COUNT(*) FROM notevalid WHERE resto = %s) AS nombre_avis,
+                    (SELECT AVG(note) FROM notevalid WHERE resto = %s) AS note_moyenne,
+                    (SELECT AVG(note_service_livraison) FROM notevalid WHERE resto = %s) AS note_moyenne_livraison,
+                    (SELECT menu_teste FROM notevalid WHERE resto = %s
+                    GROUP BY menu_teste
+                    ORDER BY COUNT(*) DESC
+                    LIMIT 1) AS plat_populaire
+                """
+                cursor.execute(query, (nomRestaurant, nomRestaurant, nomRestaurant, nomRestaurant))
+                result = cursor.fetchone()
+                print("Résultat de la requête: ", result)
+                return [result] if result else []
+        except Error as e:
+            print(f"Erreur lors de la requête: {e}")
+            return False
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

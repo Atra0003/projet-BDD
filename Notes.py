@@ -20,6 +20,7 @@ def buildNote(json_file, conn):
         #CONSTRAINT date_order CHECK (date < date_commentaire)
         cursor.execute(f"""
             CREATE TABLE IF NOT EXISTS {table_name} (
+                id INT AUTO_INCREMENT PRIMARY KEY,
                 commentaire LONGTEXT,
                 note FLOAT CHECK (note >= 0 AND note <= 5),
                 date DATETIME,
@@ -40,6 +41,7 @@ def buildNote(json_file, conn):
         #CONSTRAINT date_order CHECK (date < date_commentaire)
         cursor.execute(f"""
             CREATE TABLE IF NOT EXISTS {table_name} (
+                id INT AUTO_INCREMENT PRIMARY KEY,
                 commentaire LONGTEXT,
                 note FLOAT CHECK (note >= 0 AND note <= 5),
                 date DATETIME,
