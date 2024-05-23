@@ -19,6 +19,13 @@ from UI.UIStats import Ui_Stats
 from UI.UIAjouterPlat import Ui_AjouterPlat
 from UI.UIConsulterAvisModo import Ui_ConsulterAvisModo
 from UI.UISupprimerAvisModo import Ui_SupprimerAvisModo
+from UI.UIOther import Ui_Other
+from UI.UIAvisSup3 import Ui_AvisSup3
+from UI.UIPlatPlusCher import Ui_PlatPlusCher
+from UI.UIClientMangeantMexicain import Ui_ClientMangeantMexicain
+from UI.UIPlatAsiatique import Ui_PlatAsiatique
+from UI.UIPireCodePostal import Ui_PireCodePostal
+from UI.UITypeNourritureParNote import Ui_TypeNourritureParNote
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -188,6 +195,7 @@ class MainWindow(QMainWindow):
         self.ui.pushButtonViewOpinion.clicked.connect(self.consulter_avis)
         self.ui.pushButtonViewRestaurants.clicked.connect(self.consulter_resto)
         self.ui.pushButtonAddNote.clicked.connect(self.ajouter_note)
+        self.ui.pushButtonOther.clicked.connect(self.autres_requetes)
     
     def restaurateur_menu(self):
         """
@@ -198,6 +206,7 @@ class MainWindow(QMainWindow):
         self.ui.pushButtonAddMeals.clicked.connect(self.ajouter_plat)
         self.ui.pushButtonCheckOpinions.clicked.connect(self.consulter_avis)
         self.ui.pushButtonStat.clicked.connect(self.consulter_statistique)
+        self.ui.pushButtonOther.clicked.connect(self.autres_requetes)
 
     def ajouter_avis(self):
         """
@@ -939,6 +948,160 @@ class MainWindow(QMainWindow):
         except Error as e:
             print(f"Erreur lors de la requête: {e}")
             return False
+
+    def autres_requetes(self):
+        """
+        Fenetre d'autres requetes
+        """
+        self.ui = Ui_Other()
+        self.ui.setupUi(self)
+
+        # On affiche les donnees de la bdd selon le bouton clique par l'utilisateur
+        self.ui.pushButtonAvisSup3.clicked.connect(self.afficher_avis_sup3)
+        self.ui.pushButtonPlatPlusCher.clicked.connect(self.afficher_plat_plus_cher)
+        self.ui.pushButtonClientsMexicains.clicked.connect(self.afficher_clients_mexicains)
+        self.ui.pushButtonPlatsAsiatiques.clicked.connect(self.afficher_plats_asiatiques)
+        self.ui.pushButtonCodePostalPiresRestos.clicked.connect(self.afficher_pire_code_postal)
+        self.ui.pushButtonTypeNourritureParNote.clicked.connect(self.afficher_type_nourriture_par_note)
+
+        # # On recupere les donnees de connexion entrees par l'utilisateur
+        # self.ui.buttonBoxOkRetour.accepted.connect(self.get_autres_requetes_data)
+
+        # Si l'utilisateur clique sur le bouton "Cancel", on retourne au menu principal du restaurateur
+        if self.isRestaurateur:
+            self.ui.buttonBoxOkRetour.rejected.connect(self.retour_menu_restaurateur)
+        else:
+            self.ui.buttonBoxOkRetour.rejected.connect(self.retour_menu_client)
+
+    def afficher_avis_sup3(self):
+        """
+        Affiche les avis avec une note superieure a 3
+        """
+        self.ui = Ui_AvisSup3()
+        self.ui.setupUi(self)
+
+        # On recupere les donnees de la bdd et on les affiche
+        listeAvis = self.afficher_avis_sup3_query()
+        if listeAvis:
+            listeAvis = [f"{avis[0]} : {avis[1]}" for avis in listeAvis]
+            self.ui.listWidgetRestoObtenu.addItems(listeAvis)
+
+        # Si l'utilisateur clique sur le bouton "Cancel", on retourne au menu des requetes
+        self.ui.buttonBoxOkRetour.rejected.connect(self.autres_requetes)
+    
+    def afficher_avis_sup3_query(self):
+        """
+        Requete d'affichage des avis avec une note superieure a 3
+        """
+        try:
+            with self.connection.cursor() as cursor:
+                query = "SELECT name, evaluation FROM Restaurants WHERE evaluation >= 3"
+                cursor.execute(query)
+                result = cursor.fetchall()
+                return result
+        except Error as e:
+            print(f"Erreur lors de la requete: {e}")
+            return False
+        
+    def afficher_plat_plus_cher(self):
+        """
+        Affiche le plat le plus cher
+        """
+        self.ui = Ui_PlatPlusCher()
+        self.ui.setupUi(self)
+
+        # On recupere les donnees de la bdd et on les affiche
+        platCher = self.afficher_plat_plus_cher_query()
+        if platCher:
+            self.ui.listWidgetRestoObtenu.addItem(platCher[0] + " avec un plat au prix de " + str(platCher[1]) + " euros")
+
+        # Si l'utilisateur clique sur le bouton "Cancel", on retourne au menu des requetes
+        self.ui.buttonBoxOkRetour.rejected.connect(self.autres_requetes)
+    
+    def afficher_plat_plus_cher_query(self):
+        """
+        Requete d'affichage du plat le plus cher
+        """
+        try:
+            with self.connection.cursor() as cursor:
+                query = "SELECT name, price FROM dishes ORDER BY price DESC LIMIT 1"
+                cursor.execute(query)
+                result = cursor.fetchone()
+                print("Resultat de la requete: ", result)
+                return result
+        except Error as e:
+            print(f"Erreur lors de la requete: {e}")
+            return False
+    
+    def afficher_clients_mexicains(self):
+        """
+        Affiche les clients mexicains
+        """
+        self.ui = Ui_ClientMangeantMexicain()
+        self.ui.setupUi(self)
+
+        # On recupere les donnees de la bdd et on les affiche
+        listeClients = self.afficher_clients_mexicains_query()
+        if listeClients:
+            listeClients = [f"{client[0]} a mange {client[1]} plats mexicains" for client in listeClients]
+            self.ui.listWidgetClientsObtenus.addItems(listeClients)
+
+        # Si l'utilisateur clique sur le bouton "Cancel", on retourne au menu des requetes
+        self.ui.buttonBoxOkRetour.rejected.connect(self.autres_requetes)
+
+    def afficher_clients_mexicains_query(self):
+        """
+        Requete d'affichage des 10 clients ayant consomme le plus de plats mexicains
+        """
+        try:
+            with self.connection.cursor() as cursor:
+                query = """
+                SELECT nv.client, COUNT(*) AS nombre_plats_mexicains
+                FROM notevalid nv
+                JOIN dishes d ON nv.resto = (SELECT name FROM restaurants WHERE id = d.restaurant_id)
+                JOIN restaurants r ON d.restaurant_id = r.id
+                WHERE r.type = 'mexicain'
+                GROUP BY nv.client
+                ORDER BY nombre_plats_mexicains DESC
+                LIMIT 10
+                """
+                cursor.execute(query)
+                result = cursor.fetchall()
+                print("Resultat de la requete: ", result)
+                return result
+        except Error as e:
+            print(f"Erreur lors de la requete: {e}")
+            return False
+    
+    def afficher_plats_asiatiques(self):
+        """
+        Affiche les plats asiatiques
+        """
+        self.ui = Ui_PlatAsiatique()
+        self.ui.setupUi(self)
+
+        # Si l'utilisateur clique sur le bouton "Cancel", on retourne au menu des requetes
+        self.ui.buttonBoxOkRetour.rejected.connect(self.autres_requetes)
+    
+    def afficher_pire_code_postal(self):
+        """
+        Affiche le pire code postal
+        """
+        self.ui = Ui_PireCodePostal()
+        self.ui.setupUi(self)
+
+        # Si l'utilisateur clique sur le bouton "Cancel", on retourne au menu des requetes
+        self.ui.buttonBoxOkRetour.rejected.connect(self.autres_requetes)
+
+    def afficher_type_nourriture_par_note(self):
+        """
+        Affiche le type de nourriture par note
+        """
+        self.ui = Ui_TypeNourritureParNote()
+        self.ui.setupUi(self)
+
+        # Si l'utilisateur clique sur le bouton "Cancel", on retourne au menu des requetes
+        self.ui.buttonBoxOkRetour.rejected.connect(self.autres_requetes)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
