@@ -1067,7 +1067,6 @@ class MainWindow(QMainWindow):
                 """
                 cursor.execute(query)
                 result = cursor.fetchall()
-                print("Resultat de la requete: ", result)
                 return result
         except Error as e:
             print(f"Erreur lors de la requete: {e}")
@@ -1080,28 +1079,117 @@ class MainWindow(QMainWindow):
         self.ui = Ui_PlatAsiatique()
         self.ui.setupUi(self)
 
+        # On recupere les donnees de la bdd et on les affiche
+        restaurant_non_asiatique = self.afficher_plats_asiatiques_query()
+        if restaurant_non_asiatique:
+            self.ui.listWidgetRestoObtenu.addItem(restaurant_non_asiatique[0] + " propose " + str(restaurant_non_asiatique[1]) + " plats asiatiques")
         # Si l'utilisateur clique sur le bouton "Cancel", on retourne au menu des requetes
         self.ui.buttonBoxOkRetour.rejected.connect(self.autres_requetes)
     
+    def afficher_plats_asiatiques_query(self):
+        """
+        Requete d'affichage du restaurant non-asiatique proposant le plus de plats asiatiques
+        """
+        try:
+            with self.connection.cursor() as cursor:
+                query = """
+                SELECT r.name, COUNT(*) AS nombre_plats_asiatiques
+                FROM dishes d
+                JOIN restaurants r ON d.restaurant_id = r.id
+                JOIN (
+                    SELECT p.name AS plat_name
+                    FROM dishes p
+                    JOIN restaurants r ON p.restaurant_id = r.id
+                    WHERE r.type = 'asiatique'
+                    GROUP BY p.name
+                ) AS plats_asiatiques ON d.name = plats_asiatiques.plat_name
+                WHERE r.type != 'asiatique'
+                GROUP BY r.name
+                ORDER BY nombre_plats_asiatiques DESC
+                LIMIT 1
+                """
+                cursor.execute(query)
+                result = cursor.fetchone()
+                print("Resultat de la requete: ", result)
+                return result
+        except Error as e:
+            print(f"Erreur lors de la requete: {e}")
+            return False
+    
     def afficher_pire_code_postal(self):
         """
-        Affiche le pire code postal
+        Affiche le code postal de la ville ou les restaurants ont les moins bonnes notes en moyenne
         """
         self.ui = Ui_PireCodePostal()
         self.ui.setupUi(self)
 
+        # On recupere les donnees de la bdd et on les affiche
+        pireCodePostal = self.afficher_pire_code_postal_query()
+        if pireCodePostal:
+            self.ui.listWidgetCodePostalObtenu.addItem("Le pire code postal est " + pireCodePostal[0] + " avec une note moyenne de " + str(pireCodePostal[1]))
+
         # Si l'utilisateur clique sur le bouton "Cancel", on retourne au menu des requetes
         self.ui.buttonBoxOkRetour.rejected.connect(self.autres_requetes)
+    
+    def afficher_pire_code_postal_query(self):
+        """
+        Requete d'affichage du pire code postal
+        """
+        try:
+            with self.connection.cursor() as cursor:
+                query = """
+                SELECT r.zipcode, AVG(nv.note) AS note_moyenne
+                FROM notevalid nv
+                JOIN restaurants r ON nv.resto = r.name
+                GROUP BY r.zipcode
+                ORDER BY note_moyenne ASC
+                LIMIT 1
+                """
+                cursor.execute(query)
+                result = cursor.fetchone()
+                print("Resultat de la requete: ", result)
+                return result
+        except Error as e:
+            print(f"Erreur lors de la requete: {e}")
+            return False
 
     def afficher_type_nourriture_par_note(self):
         """
-        Affiche le type de nourriture par note
+        Affiche le type de nourriture par note le plus present
         """
         self.ui = Ui_TypeNourritureParNote()
         self.ui.setupUi(self)
 
+        # On recupere les donnees de la bdd et on les affiche
+        listeTypeNourriture = self.afficher_type_nourriture_par_note_query()
+        disclaimer = "La requete actuelle ne fonctionne pas et donne une note moyenne par type de nourriture"
+        self.ui.listWidgetTypeNourritureParNoteObtenu.addItem(disclaimer)
+        if listeTypeNourriture:
+            listeTypeNourriture = [f"{typeNourriture[0]} a une note moyenne de {typeNourriture[1]}" for typeNourriture in listeTypeNourriture]
+            self.ui.listWidgetTypeNourritureParNoteObtenu.addItems(listeTypeNourriture)
+
         # Si l'utilisateur clique sur le bouton "Cancel", on retourne au menu des requetes
         self.ui.buttonBoxOkRetour.rejected.connect(self.autres_requetes)
+    
+    def afficher_type_nourriture_par_note_query(self):
+        """
+        Requete d'affichage du type de nourriture par note
+        """
+        try:
+            with self.connection.cursor() as cursor:
+                # La requete actuelle ne fonctionne pas et donne une note moyenne par type de nourriture
+                query = """
+                SELECT r.type, AVG(nv.note) AS note_moyenne
+                FROM notevalid nv
+                JOIN restaurants r ON nv.resto = r.name
+                GROUP BY r.type
+                """
+                cursor.execute(query)
+                result = cursor.fetchall()
+                return result
+        except Error as e:
+            print(f"Erreur lors de la requete: {e}")
+            return False
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
