@@ -23,6 +23,7 @@ def create_database_and_tables(conn):
                 delivery VARCHAR(3),
                 CHECK (delivery IN ('Yes', 'No')),
                 evaluation DECIMAL(3,1),
+                restaurateur_id INT,
                 CONSTRAINT chk_price_range CHECK (price_range IN ('bas', 'haut', 'moyen'))
 
             );
@@ -78,7 +79,17 @@ def parse_xml_and_insert_data(xml_file_path, conn):
         opening_hours = resto.find('opening_hours/opening').text if resto.find('opening_hours/opening') is not None else '00:00:00'
         closing_hours = resto.find('opening_hours/closing').text if resto.find('opening_hours/closing') is not None else '00:00:00'
         
-        cursor.execute("INSERT INTO Restaurants (name, type, city, country, street, number, zipcode, opening_hours, closing_hours, price_range, delivery, evaluation) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", (name, type_cuisine, city, country, street, number, zipcode, opening_hours, closing_hours, price_range, delivery, evaluation))
+        ### here
+        cursor.execute("SELECT id FROM Restaurateurs WHERE restaurant = %s", (name,))
+        restaurateur_id = cursor.fetchone()
+        if restaurateur_id:
+            restaurateur_id = restaurateur_id[0]  # Extrait l'ID du tuple
+        else:
+            restaurateur_id = None  # Ou une valeur par défaut si aucun restaurateur correspondant n'est trouvé
+
+        
+
+        cursor.execute("INSERT INTO Restaurants (name, type, city, country, street, number, zipcode, opening_hours, closing_hours, price_range, delivery, evaluation, restaurateur_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", (name, type_cuisine, city, country, street, number, zipcode, opening_hours, closing_hours, price_range, delivery, evaluation, restaurateur_id))
         restaurant_id = cursor.lastrowid
 
         for dish in resto.find('menu').findall('dish'):

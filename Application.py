@@ -49,8 +49,8 @@ class MainWindow(QMainWindow):
             connection = mysql.connector.connect(
                 host='localhost',
                 database='datatest',
-                user='root',
-                password=''
+                user='amara',
+                password='aaa'
             )
             if connection.is_connected():
                 print("La connexion s'est bien etablie")
