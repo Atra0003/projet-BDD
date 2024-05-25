@@ -1,6 +1,12 @@
 from datetime import datetime
 import mysql.connector
 from mysql.connector import Error
+from queries.afficher_avis_sup3_query import afficher_avis_sup3_query
+from queries.afficher_plat_plus_cher_query import afficher_plat_plus_cher_query
+from queries.afficher_clients_mexicains_query import afficher_clients_mexicains_query
+from queries.afficher_plats_asiatiques_query import afficher_plats_asiatiques_query
+from queries.afficher_pire_code_postal_query import afficher_pire_code_postal_query
+from queries.afficher_type_nourriture_par_note_query import afficher_type_nourriture_par_note_query
 
 class Model:
     def __init__(self):
@@ -11,8 +17,8 @@ class Model:
             connection = mysql.connector.connect(
                 host='localhost',
                 database='datatest',
-                user='amara',
-                password='aaa'
+                user='root',
+                password=''
             )
             if connection.is_connected():
                 print("La connexion s'est bien etablie")
@@ -382,121 +388,36 @@ class Model:
 
     def afficher_avis_sup3_query(self):
         """
-        Requete d'affichage des avis avec une note superieure a 3
+        Requete d'affichage des avis ayant plus de 3 commentaires
         """
-        try:
-            with self.connection.cursor() as cursor:
-                query = "SELECT name, evaluation FROM Restaurants WHERE evaluation >= 3"
-                cursor.execute(query)
-                result = cursor.fetchall()
-                return result
-        except Error as e:
-            print(f"Erreur lors de la requete: {e}")
-            return False
-        
+        return afficher_avis_sup3_query(self)
+
     def afficher_plat_plus_cher_query(self):
         """
         Requete d'affichage du plat le plus cher
         """
-        try:
-            with self.connection.cursor() as cursor:
-                query = "SELECT name, price FROM dishes ORDER BY price DESC LIMIT 1"
-                cursor.execute(query)
-                result = cursor.fetchone()
-                return result
-        except Error as e:
-            print(f"Erreur lors de la requete: {e}")
-            return False
+        return afficher_plat_plus_cher_query(self)
     
     def afficher_clients_mexicains_query(self):
         """
         Requete d'affichage des 10 clients ayant consomme le plus de plats mexicains
         """
-        try:
-            with self.connection.cursor() as cursor:
-                query = """
-                SELECT nv.client, SUM(nv.nb_plat) AS nombre_plats_mexicains
-                FROM notevalid nv
-                JOIN dishes d ON nv.resto = (SELECT name FROM restaurants WHERE id = d.restaurant_id)
-                JOIN restaurants r ON d.restaurant_id = r.id
-                WHERE r.type = 'mexicain'
-                GROUP BY nv.client
-                ORDER BY nombre_plats_mexicains DESC
-                LIMIT 10
-                """
-                cursor.execute(query)
-                result = cursor.fetchall()
-                return result
-        except Error as e:
-            print(f"Erreur lors de la requete: {e}")
-            return False
+        return afficher_clients_mexicains_query(self)
     
     def afficher_plats_asiatiques_query(self):
         """
         Requete d'affichage du restaurant non-asiatique proposant le plus de plats asiatiques
         """
-        try:
-            with self.connection.cursor() as cursor:
-                query = """
-                SELECT r.name, COUNT(*) AS nombre_plats_asiatiques
-                FROM dishes d
-                JOIN restaurants r ON d.restaurant_id = r.id
-                JOIN (
-                    SELECT p.name AS plat_name
-                    FROM dishes p
-                    JOIN restaurants r ON p.restaurant_id = r.id
-                    WHERE r.type = 'asiatique'
-                    GROUP BY p.name
-                ) AS plats_asiatiques ON d.name = plats_asiatiques.plat_name
-                WHERE r.type != 'asiatique'
-                GROUP BY r.name
-                ORDER BY nombre_plats_asiatiques DESC
-                LIMIT 1
-                """
-                cursor.execute(query)
-                result = cursor.fetchone()
-                return result
-        except Error as e:
-            print(f"Erreur lors de la requete: {e}")
-            return False
+        return afficher_plats_asiatiques_query(self)
     
     def afficher_pire_code_postal_query(self):
         """
         Requete d'affichage du pire code postal
         """
-        try:
-            with self.connection.cursor() as cursor:
-                query = """
-                SELECT r.zipcode, AVG(nv.note) AS note_moyenne
-                FROM notevalid nv
-                JOIN restaurants r ON nv.resto = r.name
-                GROUP BY r.zipcode
-                ORDER BY note_moyenne ASC
-                LIMIT 1
-                """
-                cursor.execute(query)
-                result = cursor.fetchone()
-                return result
-        except Error as e:
-            print(f"Erreur lors de la requete: {e}")
-            return False
-
+        return afficher_pire_code_postal_query(self)
+    
     def afficher_type_nourriture_par_note_query(self):
         """
         Requete d'affichage du type de nourriture par note
         """
-        try:
-            with self.connection.cursor() as cursor:
-                # La requete actuelle ne fonctionne pas et donne une note moyenne par type de nourriture
-                query = """
-                SELECT r.type, AVG(nv.note) AS note_moyenne
-                FROM notevalid nv
-                JOIN restaurants r ON nv.resto = r.name
-                GROUP BY r.type
-                """
-                cursor.execute(query)
-                result = cursor.fetchall()
-                return result
-        except Error as e:
-            print(f"Erreur lors de la requete: {e}")
-            return False
+        return afficher_type_nourriture_par_note_query(self)

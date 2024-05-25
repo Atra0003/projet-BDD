@@ -16,42 +16,63 @@ def buildNote(json_file, conn):
     cursor = conn.cursor()
 
     # Création de la table
-    cursor.execute(f"""
-        CREATE TABLE IF NOT EXISTS {table_name} (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            commentaire LONGTEXT,
-            note FLOAT CHECK (note >= 0 AND note <= 5),
-            date DATETIME,
-            recommandation VARCHAR(255),
-            CHECK (recommandation IN ('recommandé', 'à éviter d''urgence', 'déconseillé')),
-            resto VARCHAR(255),
-            note_service_livraison FLOAT CHECK (note_service_livraison >= 0 AND note_service_livraison <= 5),
-            date_commentaire DATE,
-            menu_teste TEXT,
-            nb_plat INT,
-            prix_paye DECIMAL(10, 2),
-            heureA INT,
-            heureD INT,
-            client VARCHAR(255),
-            {'' if table_name == 'NoteValid' else 'modo VARCHAR(255),'}
-            CHECK (heureA < heureD)
-        )
-    """)
+    if table_name == "NoteValid":
+        #CONSTRAINT date_order CHECK (date < date_commentaire)
+        cursor.execute(f"""
+            CREATE TABLE IF NOT EXISTS {table_name} (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                commentaire LONGTEXT,
+                note FLOAT CHECK (note >= 0 AND note <= 5),
+                date DATETIME,
+                recommandation VARCHAR(255),
+                CHECK (recommandation IN ('recommandé', 'à éviter d''urgence', 'déconseillé')),
+                resto VARCHAR(255),
+                note_service_livraison FLOAT CHECK (note_service_livraison >= 0 AND note_service_livraison <= 5),
+                date_commentaire DATE,
+                menu_teste TEXT,
+                prix_paye DECIMAL(10, 2),
+                heureA INT,
+                heureD INT,
+                client VARCHAR(255),
+                CHECK (heureA < heureD)
+            )
+        """)
+    else:
+        #CONSTRAINT date_order CHECK (date < date_commentaire)
+        cursor.execute(f"""
+            CREATE TABLE IF NOT EXISTS {table_name} (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                commentaire LONGTEXT,
+                note FLOAT CHECK (note >= 0 AND note <= 5),
+                date DATETIME,
+                recommandation VARCHAR(255),
+                CHECK (recommandation IN ('recommandé', 'à éviter d''urgence', 'déconseillé')),
+                resto VARCHAR(255),
+                note_service_livraison FLOAT CHECK (note_service_livraison >= 0 AND note_service_livraison <= 5),
+                date_commentaire DATE,
+                menu_teste TEXT,
+                prix_paye DECIMAL(10, 2),
+                heureA INT,
+                heureD INT,
+                client VARCHAR(255),
+                modo VARCHAR(255),
+                CHECK (heureA < heureD)
+            )
+        """)
 
     # Insertion des données
     for entry in data:
         commentaire = entry.get('commentaire', '')
-        note = float(entry.get('note', 0.0))
+        note = float(entry.get('note', ''))
         date_str = entry.get('date', '')
         recommandation = entry.get('recommandation', '')
         resto = entry.get('resto', '')
         note_service_livraison = float(entry.get('Note_service/livraison', '')[-1])  # Convertir en float et ne stocker que le dernier caractère
         date_commentaire = entry.get('date commentaire', '')
         menu_teste = entry.get('menu_teste', '')
-        nb_plat = len(menu_teste.split(';'))
-        prix_paye = float(entry.get('prix_paye', 0.0))
-        heureA = int(entry.get('heureA', 0))  # Convertir en entier
-        heureD = int(entry.get('heureD', 0))  # Convertir en entier
+        prix_paye = entry.get('prix_paye', '0.0')
+        heureA = int(entry.get('heureA', ''))  # Convertir en entier
+        heureD = int(entry.get('heureD', ''))  # Convertir en entier
         client = entry.get('client', '')
         modo = entry.get('modo', '') if table_name == "NoteRemoved" else None
 
@@ -61,19 +82,19 @@ def buildNote(json_file, conn):
         if table_name == "NoteValid":
             sql = f"""
                 INSERT INTO {table_name} (commentaire, note, date, recommandation, resto, note_service_livraison, 
-                                          date_commentaire, menu_teste, nb_plat, prix_paye, heureA, heureD, client)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                          date_commentaire, menu_teste, prix_paye, heureA, heureD, client)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """
             cursor.execute(sql, (commentaire, note, formatted_date, recommandation, resto, note_service_livraison,
-                                 date_commentaire, menu_teste, nb_plat, prix_paye, heureA, heureD, client))
+                                 date_commentaire, menu_teste, prix_paye, heureA, heureD, client))
         else:
             sql = f"""
                 INSERT INTO {table_name} (commentaire, note, date, recommandation, resto, note_service_livraison, 
-                                          date_commentaire, menu_teste, nb_plat, prix_paye, heureA, heureD, client, modo)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                          date_commentaire, menu_teste, prix_paye, heureA, heureD, client, modo)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """
             cursor.execute(sql, (commentaire, note, formatted_date, recommandation, resto, note_service_livraison,
-                                 date_commentaire, menu_teste, nb_plat, prix_paye, heureA, heureD, client, modo))
+                                 date_commentaire, menu_teste, prix_paye, heureA, heureD, client, modo))
 
     conn.commit()
     cursor.close()
