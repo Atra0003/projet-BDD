@@ -11,8 +11,8 @@ class Model:
             connection = mysql.connector.connect(
                 host='localhost',
                 database='datatest',
-                user='root',
-                password=''
+                user='amara',
+                password='aaa'
             )
             if connection.is_connected():
                 print("La connexion s'est bien etablie")
@@ -415,7 +415,7 @@ class Model:
         try:
             with self.connection.cursor() as cursor:
                 query = """
-                SELECT nv.client, COUNT(*) AS nombre_plats_mexicains
+                SELECT nv.client, SUM(nv.nb_plat) AS nombre_plats_mexicains
                 FROM notevalid nv
                 JOIN dishes d ON nv.resto = (SELECT name FROM restaurants WHERE id = d.restaurant_id)
                 JOIN restaurants r ON d.restaurant_id = r.id
